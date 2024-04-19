@@ -1,6 +1,8 @@
 from motor.motor_asyncio import AsyncIOMotorCollection, AsyncIOMotorCursor
 from datetime import datetime
 
+from utils.time import divide_time_period
+
 
 formats = {
     "month": "%Y-%m",
@@ -8,6 +10,25 @@ formats = {
     "day": "%Y-%m-%d",
     "hour": "%Y-%m-%d-%H",
 }
+
+
+async def collect_dataset(collection: AsyncIOMotorCollection, start_time: datetime, end_time: datetime, group_type: str) -> dict:
+    labels = divide_time_period(start_time, end_time, group_type)
+    labels_str = [label.isoformat() for label in labels]
+    whole_period_cursor = await aggregate_period(collection, start_time, end_time, group_type)
+
+    data_dict = {}
+    async for item in whole_period_cursor:
+        data_dict[item["iso_date"]] = item["value"]
+
+    dataset = []
+    for label in labels_str:
+        if label not in data_dict:
+            dataset.append(0)
+        else:
+            dataset.append(data_dict[label])
+    return {"dataset": dataset, "labels": labels_str}
+
 
 
 async def aggregate_period(collection: AsyncIOMotorCollection, start_time: datetime, end_time: datetime, group_type) -> AsyncIOMotorCursor:
